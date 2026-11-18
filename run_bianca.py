@@ -1,7 +1,7 @@
-
 import asyncio
 import signal
 import threading
+import onnxruntime as ort
 from time import perf_counter
 from types import SimpleNamespace
 
@@ -14,12 +14,38 @@ from bianca.config import (
     WHISPER_MODEL_SIZE,
     WHISPER_DEVICE,
     WHISPER_COMPUTE_TYPE,
+    TTS_NUM_THREADS,
 )
+
+from bianca.services import llm
+from bianca.services import tts as tts_service
 
 from bianca.logging_config import logger, log_event
 from bianca.services.wakeword import load_model
 from bianca.services.assistant import assistant_loop
 
+def load_tts():
+    """Load Kokoro, optionally with a fixed number of CPU threads."""
+
+    if TTS_NUM_THREADS is None:
+        return Kokoro(
+            str(KOKORO_MODEL_PATH),
+            str(KOKORO_VOICES_PATH),
+        )
+
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = TTS_NUM_THREADS
+
+    session = ort.InferenceSession(
+        str(KOKORO_MODEL_PATH),
+        sess_options=options,
+        providers=["CPUExecutionProvider"],
+    )
+
+    return Kokoro.from_session(
+        session,
+        str(KOKORO_VOICES_PATH),
+    )
 
 async def main():
     # Shared application state used by the assistant services.
@@ -52,10 +78,7 @@ async def main():
         started = perf_counter()
         logger.info("Loading Bianca's voice...")
 
-        app.state.tts = Kokoro(
-            str(KOKORO_MODEL_PATH),
-            str(KOKORO_VOICES_PATH),
-        )
+        app.state.tts = load_tts()
 
         log_event(
             "tts_loaded",
@@ -97,7 +120,21 @@ async def main():
         if stop_event.is_set():
             return
 
-        # 4. Start the assistant.
+        # 4. Warm up, so the first real question isn't slow.
+        started = perf_counter()
+        logger.info("Warming up...")
+
+        await llm.warm_up()
+        tts_service.synthesize(app.state.tts, "Hello there.")
+
+        log_event(
+            "warmup_done",
+            startup_duration_ms=round(
+                (perf_counter() - started) * 1000, 2
+            ),
+        )
+
+        # 5. Start the assistant.
         await assistant_loop(app, stop_event)
 
     finally:

@@ -9,6 +9,7 @@ from scipy.signal import resample_poly
 from openwakeword.model import Model
 
 from ..config import MICROPHONE_ID, WAKEWORD_MODEL_PATH as MODEL_PATH
+from ..logging_config import log_event
 
 INPUT_SAMPLE_RATE = 48000
 WAKEWORD_SAMPLE_RATE = 16000
@@ -19,7 +20,7 @@ INPUT_FRAME_SIZE = 3840
 WAKEWORD_THRESHOLD = 0.5
 
 SILENCE_THRESHOLD = 0.010
-SILENCE_DURATION = 1.2
+SILENCE_DURATION = 0.8
 
 PRE_ROLL_DURATION = 1.6
 FOLLOW_UP_PRE_ROLL_DURATION = 0.4
@@ -91,6 +92,7 @@ def _capture_until_silence(
 
     silence_frames = 0
     recording_started = perf_counter()
+    reason = "unknown"
 
     while True:
         frame = _read_frame(stream, stop_event)
@@ -111,16 +113,21 @@ def _capture_until_silence(
 
         if silence_frames >= silence_frames_required:
             print("Speech finished.")
+            reason = "silence"
             break
 
         if elapsed >= MAX_COMMAND_DURATION:
             print("Maximum command duration reached.")
+            reason = "max_duration"
             break
 
     audio = np.concatenate(command_frames)
 
-    print(
-        f"Captured {len(audio) / WAKEWORD_SAMPLE_RATE:.2f} seconds."
+    log_event(
+        "capture_finished",
+        reason=reason,
+        audio_seconds=round(len(audio) / WAKEWORD_SAMPLE_RATE, 2),
+        silence_threshold=round(float(silence_threshold), 4),
     )
 
     return audio

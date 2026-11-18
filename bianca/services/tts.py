@@ -1,10 +1,16 @@
-
 from time import perf_counter
 from io import BytesIO
+import numpy as np
 
 import soundfile as sf
 
-from ..config import TTS_VOICE, TTS_SPEED, TTS_LANGUAGE
+from ..config import (
+    TTS_VOICE,
+    TTS_SPEED,
+    TTS_LANGUAGE,
+    SENTENCE_PAUSE_SECONDS,
+    CLAUSE_PAUSE_SECONDS,
+)
 from ..logging_config import log_event
 
 
@@ -69,3 +75,35 @@ def generate(tts_model, text: str, request_id: str):
     )
 
     return audio_bytes, metrics
+
+def synthesize(tts_model, text: str):
+    """
+    Generate raw audio for one chunk of text.
+    Returns (float32 samples, sample_rate).
+    """
+
+    # Look at how the chunk ends (ignoring closing quotes/brackets).
+    last = text.rstrip().rstrip("\"'”’)]")[-1:]
+
+    if last in {".", "!", "?"}:
+        pause_seconds = SENTENCE_PAUSE_SECONDS
+        spoken = text
+    elif last in {",", ";", ":"}:
+        pause_seconds = CLAUSE_PAUSE_SECONDS
+        spoken = text
+    else:
+        # No punctuation at the end (a list item, a heading, the last
+        # words of a reply): treat it as a finished thought.
+        pause_seconds = SENTENCE_PAUSE_SECONDS
+        spoken = f"{text}."
+
+    audio, sample_rate = tts_model.create(
+        spoken,
+        voice=TTS_VOICE,
+        speed=TTS_SPEED,
+        lang=TTS_LANGUAGE,
+    )
+
+    pause = np.zeros(int(sample_rate * pause_seconds), dtype=np.float32)
+
+    return np.concatenate([audio.astype(np.float32), pause]), sample_rate

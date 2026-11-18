@@ -23,8 +23,22 @@ class BiancaFormatter(logging.Formatter):
         "stt_completed": "TRANSCRIPTION",
     }
 
+    # Fields that are printed in a special way (everything else is
+    # printed automatically as key=value).
+    HANDLED_FIELDS = {
+        "total_duration_ms",
+        "startup_duration_ms",
+        "generation_duration_ms",
+        "tokens_per_second",
+        "text",
+        "error",
+    }
+
     def format(self, record):
-        timestamp = self.formatTime(record, "%H:%M:%S")
+        timestamp = (
+            f"{self.formatTime(record, '%H:%M:%S')}"
+            f".{int(record.msecs):03d}"
+        )
 
         data = getattr(record, "event_data", {})
         event = record.getMessage()
@@ -46,6 +60,11 @@ class BiancaFormatter(logging.Formatter):
         if "tokens_per_second" in data:
             details.append(f"{data['tokens_per_second']} tokens/s")
 
+        # Print every other field as key=value so nothing is hidden.
+        for key, value in data.items():
+            if key not in self.HANDLED_FIELDS:
+                details.append(f"{key}={value}")
+
         if "text" in data:
             details.append(f'"{data["text"]}"')
 
@@ -54,7 +73,7 @@ class BiancaFormatter(logging.Formatter):
 
         details_text = "  ".join(details)
 
-        message = f"{timestamp}  {name:<20} {details_text}"
+        message = f"{timestamp}  {name:<28} {details_text}"
 
         if sys.stderr.isatty():
             return f"{color}{message}{self.RESET}"
