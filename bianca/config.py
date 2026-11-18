@@ -49,3 +49,25 @@ FOLLOW_UP_TIMEOUT = 8.0
 # None = use the library default.
 LLM_NUM_THREAD = None
 TTS_NUM_THREADS = None
+
+# Stop phrases (interrupting her while she talks)
+STOP_LISTENING_ENABLED = True
+STOP_CALIBRATION_SECONDS = 0.8    # learn her own loudness first
+
+STOP_LEVEL_MULTIPLIER = 1.5       # you must be this much louder than her echo
+
+STOP_MIN_LEVEL = 0.02             # never trigger below this volume
+STOP_MAX_LEVEL = 0.04
+
+STOP_MAX_CAPTURE_SECONDS = 1.2    # longest clip sent to Whisper
+STOP_MIN_CAPTURE_SECONDS = 0.8    # shortest clip sent to Whisper
+
+STOP_SPEECH_FRAMES = 2            # loud frames in a row (80 ms each)
+STOP_COOLDOWN_SECONDS = 1.0       # pause after a false alarm
+STOP_DEBUG_LEVELS = False          # log the mic levels every 2 s
+
+STOP_WHISPER_MODEL = "tiny.en"     # small, fast model just for stop phrases; None = reuse the main one
+STOP_WHISPER_THREADS = 2           # CPU threads for it, so it can't hog the machine
+
+GATE_POLL_SECONDS = 0.2     # how often the start gate re-checks while waiting
+GATE_ASSUMED_CHARS = 60     # guess for the next sentence's length (see step 2)

@@ -19,6 +19,7 @@ async def assistant_loop(app, stop_event):
 
     model = app.state.wakeword_model
     whisper_model = app.state.whisper
+    stop_whisper_model = app.state.stop_whisper
     tts_model = app.state.tts
     messages = app.state.conversation_messages
 
@@ -59,6 +60,7 @@ async def assistant_loop(app, stop_event):
                         tts_model,
                         messages,
                         audio,
+                        stop_whisper_model,
                     )
 
                 log_event(
